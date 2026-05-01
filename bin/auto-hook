@@ -9,6 +9,20 @@ cmd=$(echo "$input" | jq -r '
   end
 ')
 
+# Ask Claude if the command is safe
+# Uses `claude` CLI (already authenticated) with haiku for low latency
+verdict=$(echo "Classify this shell command: $cmd" | \
+  claude --model claude-haiku-4-5 \
+    -p "You are a shell command safety checker. Reply with exactly one word: SAFE or UNSAFE.
+UNSAFE: destroys data irreversibly (rm -rf /, DROP TABLE), exfiltrates secrets to external hosts, corrupts the OS, or is clearly malicious.
+SAFE: read-only ops, writes to project files, git, build tools, package managers, normal dev work." \
+    --max-turns 1 2>/dev/null | tr -d '[:space:]')
+
+if [[ "$verdict" == "UNSAFE" ]]; then
+  echo "Safety check blocked: $cmd" >&2
+  exit 1
+fi
+
 # Output in hookSpecificOutput format that Claude Code understands
 echo "$input" | jq \
   --arg c "auto $cmd" \
