@@ -1,0 +1,16 @@
+#!/bin/bash
+input=$(cat)
+
+# Read command from rtk-style output or plain tool_input
+cmd=$(echo "$input" | jq -r '
+  if .hookSpecificOutput.updatedInput.command != null
+  then .hookSpecificOutput.updatedInput.command
+  else .tool_input.command
+  end
+')
+
+# Output in hookSpecificOutput format that Claude Code understands
+echo "$input" | jq \
+  --arg c "auto $cmd" \
+  '.hookSpecificOutput.hookEventName = "PreToolUse" |
+   .hookSpecificOutput.updatedInput.command = $c'
